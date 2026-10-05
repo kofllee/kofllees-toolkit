@@ -4,11 +4,16 @@ A modular Unity Editor productivity toolkit.
 
 ## Global Lock
 
-Toggles the lock state of the currently focused lockable Editor window.
+Toggle the lock state of the currently focused Unity Editor window.
 
 Default shortcut: `Alt + D`
 
-Supported:
+Supported windows:
+
 - Inspector
 - Project Browser
-- Other compatible Editor windows exposing a lock state
+- Hierarchy
+- Animation
+- Particle System
+
+The shortcut can be changed through Unity's Shortcut Manager.

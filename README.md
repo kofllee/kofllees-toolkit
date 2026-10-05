@@ -6,4 +6,4 @@ Development project for the `com.kofllee.toolkit` package.
 
 ## Current modules
 
-- Global Lock
+- Global Lock with `Alt + D` shortcut
