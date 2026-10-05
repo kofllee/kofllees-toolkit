@@ -1,0 +1,14 @@
+{
+  "name": "Kofllee.Toolkit.Editor.Tests",
+  "rootNamespace": "Kofllee.Toolkit.Tests",
+  "references": [
+    "Kofllee.Toolkit.Editor"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "autoReferenced": false
+}

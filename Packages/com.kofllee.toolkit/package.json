@@ -1,0 +1,10 @@
+{
+  "name": "com.kofllee.toolkit",
+  "version": "0.1.0",
+  "displayName": "kofllee's Toolkit",
+  "description": "A modular Unity Editor productivity toolkit for faster project setup and everyday development workflows.",
+  "unity": "6000.3",
+  "author": {
+    "name": "kofllee"
+  }
+}

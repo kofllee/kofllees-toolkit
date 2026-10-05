@@ -1,5 +1,11 @@
 {
   "dependencies": {
+    "com.kofllee.toolkit": {
+      "version": "file:com.kofllee.toolkit",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {}
+    },
     "com.unity.2d.animation": {
       "version": "13.0.5",
       "depth": 0,

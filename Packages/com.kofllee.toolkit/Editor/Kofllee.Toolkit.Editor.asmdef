@@ -1,0 +1,8 @@
+{
+  "name": "Kofllee.Toolkit.Editor",
+  "rootNamespace": "Kofllee.Toolkit",
+  "includePlatforms": [
+    "Editor"
+  ],
+  "autoReferenced": true
+}
