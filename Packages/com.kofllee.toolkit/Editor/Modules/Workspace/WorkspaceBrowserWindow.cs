@@ -27,6 +27,8 @@ namespace Kofllee.Toolkit.Editor.Modules.Workspace
         {
             if (_tabs.Count == 0)
                 AddTab();
+            
+            _activeTabIndex = Mathf.Clamp(_activeTabIndex, 0, _tabs.Count - 1);
         }
 
         private void OnGUI()
@@ -67,9 +69,21 @@ namespace Kofllee.Toolkit.Editor.Modules.Workspace
         {
             EditorGUILayout.BeginHorizontal(EditorStyles.toolbar);
 
-            using (new EditorGUI.DisabledScope(ActiveTab.Path == "Assets"))
+            using (new EditorGUI.DisabledScope(ActiveTab.BackHistory.Count == 0))
             {
                 if(GUILayout.Button("←", EditorStyles.toolbarButton, GUILayout.Width(28f)))
+                    NavigateBack();
+            }
+            
+            using (new EditorGUI.DisabledScope(ActiveTab.ForwardHistory.Count == 0))
+            {
+                if(GUILayout.Button("→", EditorStyles.toolbarButton, GUILayout.Width(28f)))
+                    NavigateForward();
+            }
+            
+            using (new EditorGUI.DisabledScope(ActiveTab.Path == "Assets"))
+            {
+                if(GUILayout.Button("↑", EditorStyles.toolbarButton, GUILayout.Width(28f)))
                     OpenParent();
             }
             
@@ -98,7 +112,7 @@ namespace Kofllee.Toolkit.Editor.Modules.Workspace
                 Texture icon = EditorGUIUtility.IconContent("Folder Icon").image;
                 
                 if(GUILayout.Button(new GUIContent(folderName, icon), EditorStyles.label, GUILayout.Height(22f)))
-                    OpenFolder(folderPath);
+                    NavigateTo(folderPath);
             }
         }
 
@@ -159,14 +173,45 @@ namespace Kofllee.Toolkit.Editor.Modules.Workspace
                 _activeTabIndex--;
         }
 
-        private void OpenFolder(string path)
+        private void NavigateTo(string path)
         {
-            ActiveTab.Path = path;
-            ActiveTab.ScrollPosition = Vector2.zero;
-            ActiveTab.Name = Path.GetFileName(path);
-            Repaint();
+            if (path == ActiveTab.Path)
+                return;
+            
+            ActiveTab.BackHistory.Add(ActiveTab.Path);
+            ActiveTab.ForwardHistory.Clear();
+            
+            SetPath(path);
         }
 
+        private void NavigateBack()
+        {
+            if (ActiveTab.BackHistory.Count == 0)
+                return;
+            
+            int lastIndex = ActiveTab.BackHistory.Count - 1;
+            string path = ActiveTab.BackHistory[lastIndex];
+            
+            ActiveTab.BackHistory.RemoveAt(lastIndex);
+            ActiveTab.ForwardHistory.Add(ActiveTab.Path);
+            
+            SetPath(path);
+        }
+
+        private void NavigateForward()
+        {
+            if (ActiveTab.ForwardHistory.Count == 0)
+                return;
+            
+            int lastIndex = ActiveTab.ForwardHistory.Count - 1;
+            string path = ActiveTab.ForwardHistory[lastIndex];
+            
+            ActiveTab.ForwardHistory.RemoveAt(lastIndex);
+            ActiveTab.BackHistory.Add(ActiveTab.Path);
+            
+            SetPath(path);
+        }
+        
         private void OpenParent()
         {
             int separatorIndex = ActiveTab.Path.LastIndexOf('/');
@@ -174,7 +219,15 @@ namespace Kofllee.Toolkit.Editor.Modules.Workspace
             if(separatorIndex <= 0)
                 return;
             
-            OpenFolder(ActiveTab.Path.Substring(0, separatorIndex));
+            NavigateTo(ActiveTab.Path.Substring(0, separatorIndex));
+        }
+
+        private void SetPath(string path)
+        {
+            ActiveTab.Path = path;
+            ActiveTab.ScrollPosition = Vector2.zero;
+            ActiveTab.Name = Path.GetFileName(path);
+            Repaint();
         }
 
         [Serializable]
@@ -183,6 +236,9 @@ namespace Kofllee.Toolkit.Editor.Modules.Workspace
             [SerializeField] private string _name = "Assets";
             [SerializeField] private string _path = "Assets";
             [SerializeField] private Vector2 _scrollPosition;
+            [SerializeField] private List<string> _backHistory = new List<string>();
+            [SerializeField] private List<string> _forwardHistory = new List<string>();
+            
 
             internal string Name
             {
@@ -201,6 +257,9 @@ namespace Kofllee.Toolkit.Editor.Modules.Workspace
                 get => _scrollPosition;
                 set => _scrollPosition = value;
             }
+            
+            internal List<string> BackHistory => _backHistory;
+            internal List<string> ForwardHistory => _forwardHistory;
         }
     }
 }
