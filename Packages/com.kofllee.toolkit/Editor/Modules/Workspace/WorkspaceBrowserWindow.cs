@@ -214,10 +214,48 @@ namespace Kofllee.Toolkit.Workspace
         private void DrawItem(WorkspaceItem item)
         {
             Texture icon = GetItemIcon(item);
+            bool isSelected = string.Equals(ActiveTab.SelectedPath, item.Path, StringComparison.OrdinalIgnoreCase);
+            GUIStyle style = isSelected ? EditorStyles.selectionRect : EditorStyles.label;
+            
+            Rect rect = EditorGUILayout.GetControlRect(false, 22f);
 
-            if (!GUILayout.Button(new GUIContent(item.Name, icon), EditorStyles.label, GUILayout.Height(22f)))
+            if (Event.current.type == EventType.Repaint)
+                style.Draw(rect, new GUIContent(item.Name, icon), false, false, isSelected, false);
+
+            HandleItemInput(rect, item);
+        }
+        
+        private void HandleItemInput(Rect rect, WorkspaceItem item)
+        {
+            Event currentEvent = Event.current;
+
+            if (currentEvent.type != EventType.MouseDown || currentEvent.button != 0 || !rect.Contains(currentEvent.mousePosition))
                 return;
 
+            SelectItem(item);
+
+            if (currentEvent.clickCount >= 2)
+                OpenItem(item);
+
+            currentEvent.Use();
+            Repaint();
+        }
+        
+        private void SelectItem(WorkspaceItem item)
+        {
+            ActiveTab.SelectedPath = item.Path;
+
+            if (!item.IsUnityAsset)
+                return;
+
+            Object asset = AssetDatabase.LoadMainAssetAtPath(item.Path);
+
+            if (asset)
+                Selection.activeObject = asset;
+        }
+        
+        private void OpenItem(WorkspaceItem item)
+        {
             if (item.IsFolder)
             {
                 NavigateTo(item.Path);
@@ -225,9 +263,16 @@ namespace Kofllee.Toolkit.Workspace
             }
 
             if (item.IsUnityAsset)
-                SelectUnityAsset(item);
-            else if (Event.current.clickCount >= 2)
-                EditorUtility.OpenWithDefaultApp(item.Path);
+            {
+                Object asset = AssetDatabase.LoadMainAssetAtPath(item.Path);
+
+                if (asset)
+                    AssetDatabase.OpenAsset(asset);
+
+                return;
+            }
+
+            EditorUtility.OpenWithDefaultApp(item.Path);
         }
 
         private Texture GetItemIcon(WorkspaceItem item)
@@ -379,6 +424,7 @@ namespace Kofllee.Toolkit.Workspace
             ActiveTab.AddressInput = path;
             ActiveTab.ScrollPosition = Vector2.zero;
             ActiveTab.Name = WorkspaceUtility.GetDisplayName(path);
+            ActiveTab.SelectedPath = null;
             Repaint();
         }
     }

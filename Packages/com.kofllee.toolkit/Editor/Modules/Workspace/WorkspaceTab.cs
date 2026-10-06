@@ -14,6 +14,8 @@ namespace Kofllee.Toolkit.Workspace
         [SerializeField] private List<string> _backHistory = new List<string>();
         [SerializeField] private List<string> _forwardHistory = new List<string>();
 
+        [SerializeField] private string _selectedPath;
+
         internal string Name
         {
             get => _name;
@@ -36,6 +38,12 @@ namespace Kofllee.Toolkit.Workspace
         {
             get => _scrollPosition;
             set => _scrollPosition = value;
+        }
+
+        internal string SelectedPath
+        {
+            get => _selectedPath;
+            set => _selectedPath = value;
         }
 
         internal List<string> BackHistory => _backHistory;
