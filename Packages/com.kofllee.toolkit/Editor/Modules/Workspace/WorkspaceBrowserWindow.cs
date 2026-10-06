@@ -103,6 +103,12 @@ namespace Kofllee.Toolkit.Workspace
                 DrawBreadcrumbs();
             
             GUILayout.Space(6f);
+
+            ActiveTab.SearchQuery = GUILayout.TextField(ActiveTab.SearchQuery, EditorStyles.toolbarSearchField, GUILayout.Width(160f));
+
+            ActiveTab.SortMode = (WorkspaceSortMode)EditorGUILayout.EnumPopup(ActiveTab.SortMode, EditorStyles.toolbarDropDown, GUILayout.Width(110f));
+            
+            GUILayout.Space(6f);
             
             if(GUILayout.Toggle(ActiveTab.ViewMode == WorkspaceViewMode.List, "List", EditorStyles.toolbarButton, GUILayout.Width(40f)))
                 ActiveTab.ViewMode = WorkspaceViewMode.List;
@@ -202,7 +208,7 @@ namespace Kofllee.Toolkit.Workspace
 
             try
             {
-                List<WorkspaceItem> items = WorkspaceUtility.GetItems(ActiveTab.Path);
+                List<WorkspaceItem> items = WorkspaceUtility.GetItems(ActiveTab.Path, ActiveTab.SearchQuery, ActiveTab.SortMode);
 
                 if (ActiveTab.ViewMode == WorkspaceViewMode.Grid)
                     DrawGrid(items);

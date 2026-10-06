@@ -66,11 +66,14 @@ namespace Kofllee.Toolkit.Workspace
             return string.IsNullOrEmpty(name) ? path : name;
         }
 
-        internal static List<WorkspaceItem> GetItems(string path)
+        internal static List<WorkspaceItem> GetItems(string path, string searchQuery, WorkspaceSortMode sortMode)
         {
             List<WorkspaceItem> items = IsUnityPath(path) ? GetUnityItems(path) : GetFilesystemItems(path);
 
-            items.Sort(CompareItems);
+            if (!string.IsNullOrWhiteSpace(searchQuery))
+                items.RemoveAll(item => item.Name.IndexOf(searchQuery, StringComparison.OrdinalIgnoreCase) < 0);
+
+            items.Sort((first, second) => CompareItems(first, second, sortMode));
 
             return items;
         }
@@ -262,10 +265,31 @@ namespace Kofllee.Toolkit.Workspace
             return items;
         }
 
-        private static int CompareItems(WorkspaceItem first, WorkspaceItem second)
+        private static int CompareItems(WorkspaceItem first, WorkspaceItem second, WorkspaceSortMode sortMode)
         {
             if (first.IsFolder != second.IsFolder)
                 return first.IsFolder ? -1 : 1;
+
+            return sortMode switch
+            {
+                WorkspaceSortMode.NameDescending => string.Compare(second.Name, first.Name, StringComparison.OrdinalIgnoreCase),
+                WorkspaceSortMode.Type => CompareByType(first, second),
+                _ => string.Compare(first.Name, second.Name, StringComparison.OrdinalIgnoreCase)
+            };
+        }
+        
+        private static int CompareByType(WorkspaceItem first, WorkspaceItem second)
+        {
+            if (first.IsFolder)
+                return string.Compare(first.Name, second.Name, StringComparison.OrdinalIgnoreCase);
+
+            string firstExtension = Path.GetExtension(first.Name);
+            string secondExtension = Path.GetExtension(second.Name);
+
+            int extensionComparison = string.Compare(firstExtension, secondExtension, StringComparison.OrdinalIgnoreCase);
+
+            if (extensionComparison != 0)
+                return extensionComparison;
 
             return string.Compare(first.Name, second.Name, StringComparison.OrdinalIgnoreCase);
         }

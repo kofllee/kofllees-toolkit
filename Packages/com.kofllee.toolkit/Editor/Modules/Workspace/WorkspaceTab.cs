@@ -10,6 +10,13 @@ namespace Kofllee.Toolkit.Workspace
         Grid
     }
     
+    internal enum WorkspaceSortMode
+    {
+        NameAscending,
+        NameDescending,
+        Type
+    }
+    
     [Serializable]
     internal class WorkspaceTab
     {
@@ -22,6 +29,9 @@ namespace Kofllee.Toolkit.Workspace
 
         [SerializeField] private string _selectedPath;
         [SerializeField] private WorkspaceViewMode _viewMode = WorkspaceViewMode.Grid;
+        
+        [SerializeField] private string _searchQuery;
+        [SerializeField] private WorkspaceSortMode _sortMode = WorkspaceSortMode.NameAscending;
 
         internal string Name
         {
@@ -58,6 +68,19 @@ namespace Kofllee.Toolkit.Workspace
             get => _viewMode;
             set => _viewMode = value;
         }
+        
+        internal string SearchQuery
+        {
+            get => _searchQuery;
+            set => _searchQuery = value;
+        }
+
+        internal WorkspaceSortMode SortMode
+        {
+            get => _sortMode;
+            set => _sortMode = value;
+        }
+        
 
         internal List<string> BackHistory => _backHistory;
         internal List<string> ForwardHistory => _forwardHistory;
