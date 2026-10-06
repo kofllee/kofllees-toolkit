@@ -89,7 +89,7 @@ namespace Kofllee.Toolkit.Editor.Modules.Workspace
                     NavigateForward();
             }
             
-            using (new EditorGUI.DisabledScope(ActiveTab.Path is "Assets" or "Packages"))
+            using (new EditorGUI.DisabledScope(!CanOpenParent()))
             {
                 if(GUILayout.Button("↑", EditorStyles.toolbarButton, GUILayout.Width(28f)))
                     OpenParent();
@@ -136,23 +136,52 @@ namespace Kofllee.Toolkit.Editor.Modules.Workspace
 
         private void DrawBreadcrumbs()
         {
+            if (IsUnityPath(ActiveTab.Path))
+                DrawUnityBreadcrumbs();
+            else
+                DrawFilesystemBreadcrumbs();
+
+            if (GUILayout.Button(GUIContent.none, GUIStyle.none, GUILayout.ExpandWidth(true), GUILayout.Height(18f)))
+                BeginAddressEditing();
+        }
+        
+        private void DrawUnityBreadcrumbs()
+        {
             string[] parts = ActiveTab.Path.Split('/');
             string path = string.Empty;
 
             for (int i = 0; i < parts.Length; i++)
             {
                 path = i == 0 ? parts[i] : path + "/" + parts[i];
-                string targetPath = path;
-
-                if (i > 0)
-                    GUILayout.Label(">", EditorStyles.miniLabel, GUILayout.Width(10f));
-
-                if (GUILayout.Button(parts[i], EditorStyles.toolbarButton, GUILayout.ExpandWidth(false)))
-                    NavigateTo(targetPath);
+                DrawBreadcrumb(parts[i], path, i > 0);
             }
+        }
 
-            if (GUILayout.Button(GUIContent.none, GUIStyle.none, GUILayout.ExpandWidth(true), GUILayout.Height(18f)))
-                BeginAddressEditing();
+        private void DrawFilesystemBreadcrumbs()
+        {
+            string normalizedPath = ActiveTab.Path.Replace('\\', '/');
+            string root = Path.GetPathRoot(normalizedPath)?.Replace('\\', '/');
+            string relativePath = normalizedPath.Substring(root.Length);
+            string[] parts = relativePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+
+            string path = root.TrimEnd('/');
+
+            DrawBreadcrumb(root, root, false);
+
+            foreach (string part in parts)
+            {
+                path += "/" + part;
+                DrawBreadcrumb(part, path, true);
+            }
+        }
+
+        private void DrawBreadcrumb(string label, string path, bool showSeparator)
+        {
+            if (showSeparator)
+                GUILayout.Label(">", EditorStyles.miniLabel, GUILayout.Width(10f));
+
+            if (GUILayout.Button(label, EditorStyles.toolbarButton, GUILayout.ExpandWidth(false)))
+                NavigateTo(path);
         }
         
         private void BeginAddressEditing()
@@ -175,10 +204,65 @@ namespace Kofllee.Toolkit.Editor.Modules.Workspace
         {
             ActiveTab.ScrollPosition = EditorGUILayout.BeginScrollView(ActiveTab.ScrollPosition);
 
+            if (IsUnityPath(ActiveTab.Path))
+                DrawUnityContent();
+            else
+                DrawFilesystemContent();
+
+            EditorGUILayout.EndScrollView();
+        }
+        
+        private void DrawUnityContent()
+        {
             DrawFolders();
             DrawAssets();
-            
-            EditorGUILayout.EndScrollView();
+        }
+
+        private void DrawFilesystemContent()
+        {
+            try
+            {
+                DrawFilesystemFolders();
+                DrawFilesystemFiles();
+            }
+            catch (UnauthorizedAccessException)
+            {
+                EditorGUILayout.HelpBox("Access denied", MessageType.Warning);
+            }
+            catch (DirectoryNotFoundException)
+            {
+                EditorGUILayout.HelpBox("Folder not found", MessageType.Warning);
+            }
+        }
+        
+        private void DrawFilesystemFolders()
+        {
+            foreach (string folderPath in Directory.EnumerateDirectories(ActiveTab.Path))
+            {
+                string folderName = Path.GetFileName(folderPath);
+                Texture icon = EditorGUIUtility.IconContent("Folder Icon").image;
+
+                if (GUILayout.Button(new GUIContent(folderName, icon), EditorStyles.label, GUILayout.Height(22f)))
+                    NavigateTo(folderPath.Replace('\\', '/'));
+            }
+        }
+        
+        private void DrawFilesystemFiles()
+        {
+            foreach (string filePath in Directory.EnumerateFiles(ActiveTab.Path))
+            {
+                if (Path.GetExtension(filePath).Equals(".meta", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                string fileName = Path.GetFileName(filePath);
+                Texture icon = EditorGUIUtility.IconContent("DefaultAsset Icon").image;
+
+                if (!GUILayout.Button(new GUIContent(fileName, icon), EditorStyles.label, GUILayout.Height(22f)))
+                    continue;
+
+                if (Event.current.clickCount >= 2)
+                    EditorUtility.OpenWithDefaultApp(filePath);
+            }
         }
 
         private void DrawFolders()
@@ -315,7 +399,10 @@ namespace Kofllee.Toolkit.Editor.Modules.Workspace
 
         private void NavigateFromAddress()
         {
-            string path = ActiveTab.AddressInput.Trim().Replace('\\', '/').TrimEnd('/');
+            string path = ActiveTab.AddressInput.Trim().Replace('\\', '/');
+
+            if (!IsDriveRoot(path))
+                path = path.TrimEnd('/');
 
             if (!IsValidPath(path))
             {
@@ -329,19 +416,49 @@ namespace Kofllee.Toolkit.Editor.Modules.Workspace
             Repaint();
         }
         
+        private bool IsDriveRoot(string path)
+        {
+            return path.Length == 3 && char.IsLetter(path[0]) && path[1] == ':' && path[2] == '/';
+        }
+        
         private bool IsValidPath(string path)
         {
-            return path == "Assets" || path == "Packages" || AssetDatabase.IsValidFolder(path);
+            if (IsUnityPath(path))
+                return path is "Assets" or "Packages" || AssetDatabase.IsValidFolder(path);
+
+            return Directory.Exists(path);
+        }
+        
+        private bool IsUnityPath(string path)
+        {
+            return path == "Assets" || path.StartsWith("Assets/") || path == "Packages" || path.StartsWith("Packages/");
+        }
+        
+        private bool CanOpenParent()
+        {
+            if (IsUnityPath(ActiveTab.Path))
+                return ActiveTab.Path is not "Assets" and not "Packages";
+
+            return Directory.GetParent(ActiveTab.Path) != null;
         }
         
         private void OpenParent()
         {
-            int separatorIndex = ActiveTab.Path.LastIndexOf('/');
-            
-            if(separatorIndex <= 0)
+            if (IsUnityPath(ActiveTab.Path))
+            {
+                int separatorIndex = ActiveTab.Path.LastIndexOf('/');
+
+                if (separatorIndex <= 0)
+                    return;
+
+                NavigateTo(ActiveTab.Path.Substring(0, separatorIndex));
                 return;
-            
-            NavigateTo(ActiveTab.Path.Substring(0, separatorIndex));
+            }
+
+            DirectoryInfo parent = Directory.GetParent(ActiveTab.Path);
+
+            if (parent != null)
+                NavigateTo(parent.FullName.Replace('\\', '/'));
         }
 
         private void SetPath(string path)
