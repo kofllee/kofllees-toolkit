@@ -9,6 +9,10 @@ namespace Kofllee.Toolkit.Workspace
 {
     internal class WorkspaceBrowserWindow : EditorWindow
     {
+        private const float GridItemWidth = 100f;
+        private const float GridItemHeight = 110f;
+        private const float GridIconSize = 64f;
+        
         [SerializeField] private List<WorkspaceTab> _tabs = new List<WorkspaceTab>();
         [SerializeField] private int _activeTabIndex;
 
@@ -97,6 +101,14 @@ namespace Kofllee.Toolkit.Workspace
                 DrawAddressInput();
             else
                 DrawBreadcrumbs();
+            
+            GUILayout.Space(6f);
+            
+            if(GUILayout.Toggle(ActiveTab.ViewMode == WorkspaceViewMode.List, "List", EditorStyles.toolbarButton, GUILayout.Width(40f)))
+                ActiveTab.ViewMode = WorkspaceViewMode.List;
+            
+            if(GUILayout.Toggle(ActiveTab.ViewMode == WorkspaceViewMode.Grid, "Grid", EditorStyles.toolbarButton, GUILayout.Width(40f)))
+                ActiveTab.ViewMode = WorkspaceViewMode.Grid;
 
             EditorGUILayout.EndHorizontal();
         }
@@ -192,8 +204,10 @@ namespace Kofllee.Toolkit.Workspace
             {
                 List<WorkspaceItem> items = WorkspaceUtility.GetItems(ActiveTab.Path);
 
-                foreach (WorkspaceItem item in items)
-                    DrawItem(item);
+                if (ActiveTab.ViewMode == WorkspaceViewMode.Grid)
+                    DrawGrid(items);
+                else
+                    DrawList(items);
             }
             catch (UnauthorizedAccessException)
             {
@@ -210,19 +224,86 @@ namespace Kofllee.Toolkit.Workspace
 
             EditorGUILayout.EndScrollView();
         }
+        
+        private void DrawList(List<WorkspaceItem> items)
+        {
+            foreach (WorkspaceItem item in items)
+                DrawListItem(item);
+        }
 
-        private void DrawItem(WorkspaceItem item)
+        private void DrawListItem(WorkspaceItem item)
         {
             Texture icon = GetItemIcon(item);
             bool isSelected = string.Equals(ActiveTab.SelectedPath, item.Path, StringComparison.OrdinalIgnoreCase);
             GUIStyle style = isSelected ? EditorStyles.selectionRect : EditorStyles.label;
-            
             Rect rect = EditorGUILayout.GetControlRect(false, 22f);
 
             if (Event.current.type == EventType.Repaint)
                 style.Draw(rect, new GUIContent(item.Name, icon), false, false, isSelected, false);
 
             HandleItemInput(rect, item);
+        }
+        
+        private void DrawGrid(List<WorkspaceItem> items)
+        {
+            float availableWidth = position.width - 20f;
+            int columns = Mathf.Max(1, Mathf.FloorToInt(availableWidth / GridItemWidth));
+            int index = 0;
+
+            while (index < items.Count)
+            {
+                EditorGUILayout.BeginHorizontal();
+
+                for (int column = 0; column < columns && index < items.Count; column++)
+                {
+                    DrawGridItem(items[index]);
+                    index++;
+                }
+
+                GUILayout.FlexibleSpace();
+                EditorGUILayout.EndHorizontal();
+            }
+        }
+        
+        private void DrawGridItem(WorkspaceItem item)
+        {
+            Rect rect = GUILayoutUtility.GetRect(GridItemWidth, GridItemHeight, GUILayout.Width(GridItemWidth), GUILayout.Height(GridItemHeight));
+            bool isSelected = string.Equals(ActiveTab.SelectedPath, item.Path, StringComparison.OrdinalIgnoreCase);
+
+            if (Event.current.type == EventType.Repaint && isSelected)
+                EditorStyles.selectionRect.Draw(rect, false, false, true, false);
+
+            Texture preview = GetItemPreview(item);
+            Rect iconRect = new Rect(rect.x + (rect.width - GridIconSize) * 0.5f, rect.y + 6f, GridIconSize, GridIconSize);
+
+            if (preview)
+                GUI.DrawTexture(iconRect, preview, ScaleMode.ScaleToFit);
+
+            Rect labelRect = new Rect(rect.x + 4f, rect.y + GridIconSize + 10f, rect.width - 8f, rect.height - GridIconSize - 12f);
+            GUI.Label(labelRect, item.Name, EditorStyles.centeredGreyMiniLabel);
+
+            HandleItemInput(rect, item);
+        }
+        
+        private Texture GetItemPreview(WorkspaceItem item)
+        {
+            if (item.IsFolder)
+                return EditorGUIUtility.IconContent("Folder Icon").image;
+
+            if (!item.IsUnityAsset)
+                return EditorGUIUtility.IconContent("DefaultAsset Icon").image;
+
+            Object asset = AssetDatabase.LoadMainAssetAtPath(item.Path);
+
+            if (asset)
+            {
+                Texture preview = AssetPreview.GetAssetPreview(asset);
+
+                if (preview)
+                    return preview;
+            }
+
+            return GetItemIcon(item);
         }
         
         private void HandleItemInput(Rect rect, WorkspaceItem item)
@@ -289,19 +370,6 @@ namespace Kofllee.Toolkit.Workspace
             }
 
             return EditorGUIUtility.IconContent("DefaultAsset Icon").image;
-        }
-
-        private void SelectUnityAsset(WorkspaceItem item)
-        {
-            Object asset = AssetDatabase.LoadMainAssetAtPath(item.Path);
-
-            if (!asset)
-                return;
-
-            Selection.activeObject = asset;
-
-            if (Event.current.clickCount >= 2)
-                AssetDatabase.OpenAsset(asset);
         }
 
         private void BeginAddressEditing()

@@ -4,6 +4,12 @@ using UnityEngine;
 
 namespace Kofllee.Toolkit.Workspace
 {
+    internal enum WorkspaceViewMode
+    {
+        List,
+        Grid
+    }
+    
     [Serializable]
     internal class WorkspaceTab
     {
@@ -15,6 +21,7 @@ namespace Kofllee.Toolkit.Workspace
         [SerializeField] private List<string> _forwardHistory = new List<string>();
 
         [SerializeField] private string _selectedPath;
+        [SerializeField] private WorkspaceViewMode _viewMode = WorkspaceViewMode.Grid;
 
         internal string Name
         {
@@ -44,6 +51,12 @@ namespace Kofllee.Toolkit.Workspace
         {
             get => _selectedPath;
             set => _selectedPath = value;
+        }
+
+        internal WorkspaceViewMode ViewMode
+        {
+            get => _viewMode;
+            set => _viewMode = value;
         }
 
         internal List<string> BackHistory => _backHistory;
