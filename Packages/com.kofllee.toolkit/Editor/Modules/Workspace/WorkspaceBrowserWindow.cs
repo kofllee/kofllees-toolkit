@@ -13,6 +13,9 @@ namespace Kofllee.Toolkit.Editor.Modules.Workspace
         [SerializeField] private int _activeTabIndex;
         
         private WorkspaceTab ActiveTab => _tabs[_activeTabIndex];
+        
+        private bool _isEditingAddress;
+        private bool _focusAddressField;
 
         [MenuItem("Window/kofllee's Toolkit/Workspace Browser")]
         private static void Open()
@@ -29,6 +32,9 @@ namespace Kofllee.Toolkit.Editor.Modules.Workspace
                 AddTab();
             
             _activeTabIndex = Mathf.Clamp(_activeTabIndex, 0, _tabs.Count - 1);
+
+            foreach (WorkspaceTab tab in _tabs)
+                tab.AddressInput = tab.Path;
         }
 
         private void OnGUI()
@@ -87,9 +93,80 @@ namespace Kofllee.Toolkit.Editor.Modules.Workspace
                     OpenParent();
             }
             
-            GUILayout.Label(ActiveTab.Path, EditorStyles.miniLabel);
+            if (_isEditingAddress)
+                DrawAddressInput();
+            else
+                DrawBreadcrumbs();
             
             EditorGUILayout.EndHorizontal();
+        }
+
+        private void DrawAddressInput()
+        {
+            Event currentEvent = Event.current;
+
+            bool submit = currentEvent.type == EventType.KeyDown && currentEvent.keyCode is KeyCode.Return or KeyCode.KeypadEnter;
+            bool cancel = currentEvent.type == EventType.KeyDown && currentEvent.keyCode == KeyCode.Escape;
+
+            GUI.SetNextControlName("WorkspaceAddress");
+
+            ActiveTab.AddressInput = EditorGUILayout.TextField(ActiveTab.AddressInput, EditorStyles.toolbarTextField, GUILayout.ExpandWidth(true));
+
+            if (_focusAddressField)
+            {
+                EditorGUI.FocusTextInControl("WorkspaceAddress");
+                _focusAddressField = false;
+            }
+
+            if (submit)
+            {
+                NavigateFromAddress();
+                currentEvent.Use();
+                return;
+            }
+
+            if (cancel)
+            {
+                EndAddressEditing();
+                currentEvent.Use();
+            }
+        }
+
+        private void DrawBreadcrumbs()
+        {
+            string[] parts = ActiveTab.Path.Split('/');
+            string path = string.Empty;
+
+            for (int i = 0; i < parts.Length; i++)
+            {
+                path = i == 0 ? parts[i] : path + "/" + parts[i];
+                string targetPath = path;
+
+                if (i > 0)
+                    GUILayout.Label(">", EditorStyles.miniLabel, GUILayout.Width(10f));
+
+                if (GUILayout.Button(parts[i], EditorStyles.toolbarButton, GUILayout.ExpandWidth(false)))
+                    NavigateTo(targetPath);
+            }
+
+            if (GUILayout.Button(GUIContent.none, GUIStyle.none, GUILayout.ExpandWidth(true), GUILayout.Height(18f)))
+                BeginAddressEditing();
+        }
+        
+        private void BeginAddressEditing()
+        {
+            ActiveTab.AddressInput = ActiveTab.Path;
+            _isEditingAddress = true;
+            _focusAddressField = true;
+            Repaint();
+        }
+
+        private void EndAddressEditing()
+        {
+            ActiveTab.AddressInput = ActiveTab.Path;
+            _isEditingAddress = false;
+            GUI.FocusControl(null);
+            Repaint();
         }
         
         private void DrawContent()
@@ -211,6 +288,22 @@ namespace Kofllee.Toolkit.Editor.Modules.Workspace
             
             SetPath(path);
         }
+
+        private void NavigateFromAddress()
+        {
+            string path = ActiveTab.AddressInput.Trim().Replace('\\', '/').TrimEnd('/');
+
+            if (!AssetDatabase.IsValidFolder(path))
+            {
+                ShowNotification(new GUIContent("Folder not found"));
+                return;
+            }
+
+            NavigateTo(path);
+            _isEditingAddress = false;
+            GUI.FocusControl(null);
+            Repaint();
+        }
         
         private void OpenParent()
         {
@@ -225,6 +318,7 @@ namespace Kofllee.Toolkit.Editor.Modules.Workspace
         private void SetPath(string path)
         {
             ActiveTab.Path = path;
+            ActiveTab.AddressInput = path;
             ActiveTab.ScrollPosition = Vector2.zero;
             ActiveTab.Name = Path.GetFileName(path);
             Repaint();
@@ -236,6 +330,7 @@ namespace Kofllee.Toolkit.Editor.Modules.Workspace
             [SerializeField] private string _name = "Assets";
             [SerializeField] private string _path = "Assets";
             [SerializeField] private Vector2 _scrollPosition;
+            [SerializeField] private string _addressInput = "Assets";
             [SerializeField] private List<string> _backHistory = new List<string>();
             [SerializeField] private List<string> _forwardHistory = new List<string>();
             
@@ -256,6 +351,12 @@ namespace Kofllee.Toolkit.Editor.Modules.Workspace
             {
                 get => _scrollPosition;
                 set => _scrollPosition = value;
+            }
+
+            internal string AddressInput
+            {
+                get => _addressInput;
+                set => _addressInput = value;
             }
             
             internal List<string> BackHistory => _backHistory;
