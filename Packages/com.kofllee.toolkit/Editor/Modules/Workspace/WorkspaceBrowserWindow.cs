@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.IO;
 using UnityEditor;
 using UnityEngine;
+using UnityEditor.PackageManager;
 using Object = UnityEngine.Object;
+using PackageInfo = UnityEditor.PackageManager.PackageInfo;
 
 namespace Kofllee.Toolkit.Editor.Modules.Workspace
 {
@@ -87,7 +89,7 @@ namespace Kofllee.Toolkit.Editor.Modules.Workspace
                     NavigateForward();
             }
             
-            using (new EditorGUI.DisabledScope(ActiveTab.Path == "Assets"))
+            using (new EditorGUI.DisabledScope(ActiveTab.Path is "Assets" or "Packages"))
             {
                 if(GUILayout.Button("↑", EditorStyles.toolbarButton, GUILayout.Width(28f)))
                     OpenParent();
@@ -181,6 +183,12 @@ namespace Kofllee.Toolkit.Editor.Modules.Workspace
 
         private void DrawFolders()
         {
+            if (ActiveTab.Path == "Packages")
+            {
+                DrawPackages();
+                return;
+            }
+            
             string[] folders = AssetDatabase.GetSubFolders(ActiveTab.Path);
 
             foreach (string folderPath in folders)
@@ -190,6 +198,22 @@ namespace Kofllee.Toolkit.Editor.Modules.Workspace
                 
                 if(GUILayout.Button(new GUIContent(folderName, icon), EditorStyles.label, GUILayout.Height(22f)))
                     NavigateTo(folderPath);
+            }
+        }
+
+        private void DrawPackages()
+        {
+            PackageInfo[] packages = PackageInfo.GetAllRegisteredPackages();
+
+            foreach (PackageInfo package in packages)
+            {
+                if(string.IsNullOrEmpty(package.assetPath))
+                    continue;
+                
+                Texture icon = EditorGUIUtility.IconContent("Folder Icon").image;
+                
+                if (GUILayout.Button(new GUIContent(package.displayName, icon), EditorStyles.label, GUILayout.Height(22f)))
+                    NavigateTo(package.assetPath);
             }
         }
 
@@ -293,7 +317,7 @@ namespace Kofllee.Toolkit.Editor.Modules.Workspace
         {
             string path = ActiveTab.AddressInput.Trim().Replace('\\', '/').TrimEnd('/');
 
-            if (!AssetDatabase.IsValidFolder(path))
+            if (!IsValidPath(path))
             {
                 ShowNotification(new GUIContent("Folder not found"));
                 return;
@@ -303,6 +327,11 @@ namespace Kofllee.Toolkit.Editor.Modules.Workspace
             _isEditingAddress = false;
             GUI.FocusControl(null);
             Repaint();
+        }
+        
+        private bool IsValidPath(string path)
+        {
+            return path == "Assets" || path == "Packages" || AssetDatabase.IsValidFolder(path);
         }
         
         private void OpenParent()
